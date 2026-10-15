@@ -133,6 +133,67 @@ def confirm_kb() -> InlineKeyboardMarkup:
     )
 
 
+def main_menu_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📝 Ariza qoldirish", callback_data="menu:apply")],
+            [
+                InlineKeyboardButton(text="💰 To'lov haqida", callback_data="menu:pay"),
+                InlineKeyboardButton(text="🍽️ Taom haqida", callback_data="menu:meal"),
+            ],
+            [InlineKeyboardButton(text="📚 Darslar haqida", callback_data="menu:lessons")],
+        ]
+    )
+
+
+def info_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📝 Ariza qoldirish", callback_data="menu:apply")],
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="menu:home")],
+        ]
+    )
+
+
+def home_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="menu:home")]]
+    )
+
+
+def welcome_text() -> str:
+    return (
+        f"👋 Salom! <b>{esc(SCHOOL_NAME)}</b> xususiy maktabimizga xush kelibsiz!\n\n"
+        "Quyidagi bo'limlardan birini tanlang:"
+    )
+
+
+INFO_TEXTS = {
+    "pay": (
+        "💰 <b>To'lov haqida</b>\n\n"
+        "🎒 1–6 sinflar: <b>952 000</b> so'm\n"
+        "🎒 7–8 sinflar: <b>1 224 000</b> so'm\n"
+        "🎒 9–11 sinflar: <b>1 496 000</b> so'm"
+    ),
+    "meal": (
+        "🍽️ <b>Taom haqida</b>\n\n"
+        "5 kun issiq taom, non va choy.\n"
+        "To'lov: <b>310 000</b> so'm (maktab to'lovidan tashqari)."
+    ),
+    "lessons": (
+        "📚 <b>Darslar haqida</b>\n\n"
+        "Chuqurlashtirilgan holatda mukammal darslar:\n\n"
+        "• Ingliz tili\n"
+        "• SAT\n"
+        "• Matematika\n"
+        "• Tarix\n"
+        "• Huquq\n"
+        "• Ona tili va adabiyot\n\n"
+        "<b>Qo'shimcha:</b> turk tili, arab tili"
+    ),
+}
+
+
 def summary_text(d: dict) -> str:
     meal = "Taomlanish ham" if d["meal"] else "Taomlanishsiz"
     return (
@@ -149,12 +210,32 @@ def summary_text(d: dict) -> str:
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
+    await message.answer(welcome_text(), reply_markup=main_menu_kb())
+
+
+@router.callback_query(F.data == "menu:home")
+async def menu_home(call: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await call.message.edit_text(welcome_text(), reply_markup=main_menu_kb())
+    await call.answer()
+
+
+@router.callback_query(F.data.in_({"menu:pay", "menu:meal", "menu:lessons"}))
+async def menu_info(call: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await call.message.edit_text(INFO_TEXTS[call.data.split(":", 1)[1]], reply_markup=info_kb())
+    await call.answer()
+
+
+@router.callback_query(F.data == "menu:apply")
+async def menu_apply(call: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
     await state.set_state(Form.name)
-    await message.answer(
-        f"👋 Salom! <b>{esc(SCHOOL_NAME)}</b> xususiy maktabimizga xush kelibsiz!\n\n"
+    await call.message.answer(
         "Ro'yxatdan o'tish uchun <b>to'liq ismingizni</b> kiriting:",
         reply_markup=ReplyKeyboardRemove(),
     )
+    await call.answer()
 
 
 @router.message(Command("id"))
@@ -242,7 +323,8 @@ async def confirm_yes(call: CallbackQuery, state: FSMContext, bot: Bot) -> None:
         f"📍 {esc(BRANCH_NAME)} filialimiz xodimlari tez orada siz bilan bog'lanishadi.\n\n"
         f"Savollar bo'lsa: {esc(CONTACT_USERNAME)}\n"
         f"📞 {esc(CONTACT_PHONE)}\n"
-        "Ko'rishguncha! 👋"
+        "Ko'rishguncha! 👋",
+        reply_markup=home_kb(),
     )
     await call.answer()
 
@@ -267,7 +349,7 @@ async def confirm_yes(call: CallbackQuery, state: FSMContext, bot: Bot) -> None:
 @router.callback_query(Form.confirm, F.data == "confirm:no")
 async def confirm_no(call: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await call.message.edit_text("🚫 Ariza bekor qilindi.\n\nQaytadan boshlash uchun /start ni bosing.")
+    await call.message.edit_text("🚫 Ariza bekor qilindi.", reply_markup=home_kb())
     await call.answer()
 
 
